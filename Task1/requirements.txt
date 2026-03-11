@@ -17,4 +17,5 @@ sympy==1.14.0
 threadpoolctl==3.6.0
 torch==2.10.0
 torchvision==0.25.0
+tqdm==4.67.3
 typing_extensions==4.15.0

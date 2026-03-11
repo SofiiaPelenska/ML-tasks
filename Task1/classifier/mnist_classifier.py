@@ -12,8 +12,8 @@ class AlgorithmType:
     name: str
 
 MODELS = {
-    #"rf": AlgorithmType(RFClassifier, "Random Forest"),
-    #"nn": AlgorithmType(NNClassifier, "Feed-Forward Neural Network"),
+    "rf": AlgorithmType(RFClassifier, "Random Forest"),
+    "nn": AlgorithmType(NNClassifier, "Feed-Forward Neural Network"),
     "cnn": AlgorithmType(CNNClassifier, "Convolutional Neural Network"),
 }
 

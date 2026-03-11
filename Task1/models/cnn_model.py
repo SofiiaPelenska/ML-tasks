@@ -2,11 +2,12 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
+from tqdm import tqdm
 from models.interface import MnistClassifierInterface
 
 
 class CNNClassifier(MnistClassifierInterface):
-    def __init__(self, image_size = 28, num_classes=10):
+    def __init__(self, image_size=28, num_classes=10):
         self.image_size = image_size
         feature_size = image_size // 4
 
@@ -17,7 +18,7 @@ class CNNClassifier(MnistClassifierInterface):
 
             nn.Conv2d(32, 64, kernel_size=3, padding=1),
             nn.ReLU(),
-            nn.MaxPool2d(2), 
+            nn.MaxPool2d(2),
 
             nn.Flatten(),
 
@@ -41,13 +42,17 @@ class CNNClassifier(MnistClassifierInterface):
         self.model.train()
 
         for epoch in range(epochs):
-            for batch_X, batch_y in loader:
+            epoch_loss = 0
 
+            for batch_X, batch_y in tqdm(loader, desc=f"CNN Epoch {epoch+1}/{epochs}"):
                 self.optimizer.zero_grad()
                 outputs = self.model(batch_X)
                 loss = self.loss_fn(outputs, batch_y)
                 loss.backward()
                 self.optimizer.step()
+                epoch_loss += loss.item()
+
+            print(f"loss: {epoch_loss:.4f}")
 
 
     def predict(self, X):
