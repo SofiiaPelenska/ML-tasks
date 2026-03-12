@@ -51,16 +51,3 @@ def predict(model, tokenizer, text):
             animals.append(tokens[word_id])
 
     return animals
-
-
-# if __name__ == "__main__":
-#     model, tokenizer = load_model()
-
-#     while True:
-#         text = input("\nEnter sentence: ")
-#         animals = predict(model, tokenizer, text)
-
-#         if animals:
-#             print("Detected animals:", animals)
-#         else:
-#             print("No animals detected")

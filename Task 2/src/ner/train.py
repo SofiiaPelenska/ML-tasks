@@ -1,5 +1,3 @@
-import json
-from datasets import Dataset
 from transformers import (
     DistilBertTokenizerFast,
     DistilBertForTokenClassification,
@@ -14,15 +12,7 @@ LABELS = ["O", "ANIMAL"]
 LABEL2ID = {l: i for i, l in enumerate(LABELS)}
 ID2LABEL = {i: l for l, i in LABEL2ID.items()}
 
-# Load dataset and transform it to Dataset format
-def load_dataset(path):
-    with open(path) as f:
-        data = json.load(f)
-
-    return Dataset.from_list(data)
-
-
-def tokenize_and_align_labels(examples):
+def tokenize_and_align_labels(examples, tokenizer):
     # Text tokenization
     tokenized = tokenizer(
         examples["tokens"],
@@ -56,33 +46,6 @@ def tokenize_and_align_labels(examples):
     return tokenized
 
 
-# Load datasets
-train_dataset = load_dataset("data/ner/train.json")
-val_dataset = load_dataset("data/ner/validation.json")
-
-# Remove unnecessary columns
-train_dataset = train_dataset.remove_columns(["label", "has_animal"])
-val_dataset = val_dataset.remove_columns(["label", "has_animal"])
-
-
-# Load tokenizer for DistilBERT
-tokenizer = DistilBertTokenizerFast.from_pretrained("distilbert-base-cased")
-
-
-# Tokenize datasets
-train_dataset = train_dataset.map(tokenize_and_align_labels, batched=True)
-val_dataset = val_dataset.map(tokenize_and_align_labels, batched=True)
-
-
-# Load pretrained model
-model = DistilBertForTokenClassification.from_pretrained(
-    "distilbert-base-cased",
-    num_labels=len(LABELS),  # Number of classes
-    id2label=ID2LABEL,
-    label2id=LABEL2ID,
-)
-
-
 def compute_metrics(p):
     predictions, labels = p
     # Select the most probable class
@@ -108,41 +71,57 @@ def compute_metrics(p):
     return {"f1": f1_score(true_labels, true_preds)}
 
 
-# Training configuration
-args = TrainingArguments(
-    output_dir="models/ner_model",
-    learning_rate=3e-5,  # Controls how much the model weights change during training
-    per_device_train_batch_size=16,
-    per_device_eval_batch_size=16,
-    num_train_epochs=5,  # Number of times the model will iterate over the entire training dataset
-    weight_decay=0.01,  # Regularization parameter to prevent overfitting
-    logging_steps=10,
-    save_strategy="epoch",  # Save model checkpoint after every epoch
-)
+def train_ner(train_dataset, val_dataset):
+    # Load tokenizer for DistilBERT
+    tokenizer = DistilBertTokenizerFast.from_pretrained("distilbert-base-cased")
 
+    # Tokenize datasets
+    train_dataset = train_dataset.map(
+        lambda examples: tokenize_and_align_labels(examples, tokenizer),
+        batched=True
+    )
 
-# Create Trainer
-trainer = Trainer(
-    model=model,
-    args=args,
-    train_dataset=train_dataset,
-    eval_dataset=val_dataset,
-    data_collator=DataCollatorForTokenClassification(tokenizer), # Responsible for forming correct batches
-    compute_metrics=compute_metrics
-)
+    val_dataset = val_dataset.map(
+        lambda examples: tokenize_and_align_labels(examples, tokenizer),
+        batched=True
+    )
+    
+    # Load pretrained model
+    model = DistilBertForTokenClassification.from_pretrained(
+        "distilbert-base-cased",
+        num_labels=len(LABELS),  # Number of classes
+        id2label=ID2LABEL,
+        label2id=LABEL2ID,
+    )
 
+    # Training configuration
+    args = TrainingArguments(
+        output_dir="models/ner_model",
+        learning_rate=3e-5,  # Controls how much the model weights change during training
+        per_device_train_batch_size=16,
+        per_device_eval_batch_size=16,
+        num_train_epochs=5,  # Number of times the model will iterate over the entire training dataset
+        weight_decay=0.01,  # Regularization parameter to prevent overfitting
+        logging_steps=10,
+        save_strategy="epoch",  # Save model checkpoint after every epoch
+        disable_tqdm=False # Show progress bar
+    )
 
-# Model training
-trainer.train()
+    # Create Trainer
+    trainer = Trainer(
+        model=model,
+        args=args,
+        train_dataset=train_dataset,
+        eval_dataset=val_dataset,
+        data_collator=DataCollatorForTokenClassification(tokenizer), # Responsible for forming correct batches
+        compute_metrics=compute_metrics
+    )
 
+    # Model training
+    trainer.train()
 
-# Final model evaluation
-print("\nFinal evaluation:")
-metrics = trainer.evaluate()
-for k, v in metrics.items():
-    print(f"{k}: {v}")
+    # Save model and tokenizer
+    trainer.save_model("models/ner_model")
+    tokenizer.save_pretrained("models/ner_model")
 
-
-# Save model and tokenizer
-trainer.save_model("models/ner_model")
-tokenizer.save_pretrained("models/ner_model")
+    return trainer
